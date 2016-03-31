@@ -11,25 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
+import os
+from os.path import join
 from textwrap import dedent
 
 import bcolz
 from bcolz import ctable
 from intervaltree import IntervalTree
-from numpy import nan_to_num, timedelta64
-from os.path import join
-import json
-import os
 import numpy as np
+from numpy import timedelta64
 import pandas as pd
-from zipline.gens.sim_engine import NANOS_IN_MINUTE
 
 from zipline.data._minute_bar_internal import (
     minute_value,
     find_position_of_minute,
     find_last_traded_position_internal
 )
-
+from zipline.gens.sim_engine import NANOS_IN_MINUTE
 from zipline.utils.memoize import remember_last, lazyval
 
 US_EQUITIES_MINUTES_PER_DAY = 390
@@ -563,14 +562,16 @@ class BcolzMinuteBarWriter(object):
                                  dts.astype('datetime64[ns]'))
 
         ohlc_ratio = self._ohlc_ratio
-        open_col[dt_ixs] = (nan_to_num(cols['open']) * ohlc_ratio).\
-            astype(np.uint32)
-        high_col[dt_ixs] = (nan_to_num(cols['high']) * ohlc_ratio).\
-            astype(np.uint32)
-        low_col[dt_ixs] = (nan_to_num(cols['low']) * ohlc_ratio).\
-            astype(np.uint32)
-        close_col[dt_ixs] = (nan_to_num(cols['close']) * ohlc_ratio).\
-            astype(np.uint32)
+
+        def convert_col(col):
+            """Adapt float column into a uint32 column.
+            """
+            return (np.nan_to_num(col) * ohlc_ratio).astype(np.uint32)
+
+        open_col[dt_ixs] = convert_col(cols['open'])
+        high_col[dt_ixs] = convert_col(cols['high'])
+        low_col[dt_ixs] = convert_col(cols['low'])
+        close_col[dt_ixs] = convert_col(cols['close'])
         vol_col[dt_ixs] = cols['volume'].astype(np.uint32)
 
         table.append([
